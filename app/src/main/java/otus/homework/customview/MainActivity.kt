@@ -23,7 +23,6 @@ class MainActivity : AppCompatActivity() {
         }
         val categories = testPayData.groupBy { it.category }
         Log.d("MainActivity", "countCategories: $categories")
-        val totalAmount = testPayData.sumOf { it.amount }
         for (it in categories) {
             val amount = it.value.sumOf { it.amount }
             Log.d("MainActivity", "category: ${it.key}" + " amount: $amount")
@@ -31,10 +30,8 @@ class MainActivity : AppCompatActivity() {
 
         binding.pieChartView.setData(testPayData)
         binding.pieChartView.setOnCategoryClickListener { category ->
-            {
-                Toast.makeText(this, category, Toast.LENGTH_LONG).show()
-                Log.d("MainActivity", "category1: $category")
-            }
+            Toast.makeText(this, category, Toast.LENGTH_SHORT).show()
+            Log.d("MainActivity", "category1: $category")
         }
     }
 
@@ -45,6 +42,4 @@ class MainActivity : AppCompatActivity() {
             return Gson().fromJson(json, type)
         }
     }
-
-
 }

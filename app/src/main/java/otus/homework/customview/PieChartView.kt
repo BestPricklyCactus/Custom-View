@@ -23,8 +23,8 @@ class PieChartView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null
 ) : View(context, attrs) {
-    private var pieHeight: Int = 0
-    private var pieWidth: Int = 0
+    private var pieHeight: Float = height / 2f
+    private var pieWidth: Float = width / 2f
     private var payChartData: List<PieChartData> = emptyList()
     private var totalAmount: Int = 0
     private var colorSet: EnumEntries<ColorSet> = enumEntries<ColorSet>()
@@ -32,10 +32,10 @@ class PieChartView @JvmOverloads constructor(
 
     private var paint: Paint = Paint()
     private val paintText: Paint = Paint()
-    private var rectf: RectF = RectF()
+    private var rect: RectF = RectF()
     private var selectedCategory: String? = null
     private var onCategoryClickListener: ((String) -> Unit)? = null
-
+    private val path: Path = Path()
 
     fun setOnCategoryClickListener(listener: (String) -> Unit) {
         onCategoryClickListener = listener
@@ -55,15 +55,24 @@ class PieChartView @JvmOverloads constructor(
     private fun initPieElements() {
         val categories = payChartData.groupBy { it.category }
         totalAmount = payChartData.sumOf { it.amount }
-        var counter = 0;
-        var startAngle = 0f;
+        var counter = 0
+        var startAngle = 0f
+        pieElements.clear()
         for (it in categories) {
             val categoryAmount = it.value.sumOf { it.amount }
             val partSize = categoryAmount / (totalAmount * 1f)
-            val angle = partSize * 360f;
-            pieElements.add(PieElement(colorSet.get(counter), startAngle, angle, it.key, categoryAmount))
-            counter++;
-            startAngle = startAngle + angle;
+            val angle = partSize * 360f
+            pieElements.add(
+                PieElement(
+                    colorSet[counter],
+                    startAngle,
+                    angle,
+                    it.key,
+                    categoryAmount
+                )
+            )
+            counter++
+            startAngle += angle
         }
     }
 
@@ -77,21 +86,24 @@ class PieChartView @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        val midHeight = height / 2f
-        val midWidth = width / 2f
-        val radius = maxOf(midHeight, midWidth) / 2.0f
+        val radius = maxOf(pieHeight, pieWidth) / 2.0f
 
-        rectf.set(
-            midWidth - radius,
-            midHeight - radius,
-            midWidth + radius,
-            midHeight + radius
+        rect.set(
+            pieWidth - radius,
+            pieHeight - radius,
+            pieWidth + radius,
+            pieHeight + radius
         )
         for (item in pieElements) {
-            drowPieElement(canvas, getPiePaint(paint, item), rectf, item)
-            if(item.category == selectedCategory){
-                drowPieElement(canvas, getSelectPiePaint(), rectf, item)
-                canvas.drawText( "${item.category}: ${item.amount} руб", midWidth, midHeight - 1.7f*radius, paintText)
+            drawPieElement(canvas, getPiePaint(paint, item), rect, item)
+            if (item.category == selectedCategory) {
+                drawPieElement(canvas, getSelectPiePaint(), rect, item)
+                canvas.drawText(
+                    "${item.category}: ${item.amount} руб",
+                    pieWidth,
+                    pieHeight - 1.7f * radius,
+                    paintText
+                )
             }
         }
     }
@@ -100,7 +112,7 @@ class PieChartView @JvmOverloads constructor(
         paint.reset()
 
         paint.color = pieElement.color.hexCode.toColorInt()
-        if(pieElement.category == selectedCategory){
+        if (pieElement.category == selectedCategory) {
             paint.alpha = 255
         } else {
             paint.alpha = 127
@@ -118,19 +130,18 @@ class PieChartView @JvmOverloads constructor(
         return paint
     }
 
-    fun drowPieElement(
+    fun drawPieElement(
         canvas: Canvas,
         paint: Paint,
         rect: RectF,
         pieElement: PieElement
     ) {
-        val path: Path = Path()
+        path.reset()
         path.addArc(rect, pieElement.startAngle, pieElement.angle)
         canvas.drawArc(rect, pieElement.startAngle, pieElement.angle, true, paint)
-        canvas.drawTextOnPath(pieElement.angle.toUInt().toString() + "%", path, 0f,0f, paintText)
-        invalidate()
-
+        canvas.drawTextOnPath(pieElement.angle.toUInt().toString() + "%", path, 0f, 0f, paintText)
     }
+
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (event.action == MotionEvent.ACTION_DOWN) {
@@ -139,7 +150,6 @@ class PieChartView @JvmOverloads constructor(
             val dx = event.x - midWidth
             val dy = event.y - midHeight
             val dist = sqrt(dx * dx + dy * dy)
-
 
             val radius = maxOf(midHeight, midWidth) / 2.0f
             val innerRadius = radius - radius / 2
@@ -153,8 +163,7 @@ class PieChartView @JvmOverloads constructor(
                 slice?.let {
                     selectedCategory = it.category
                     onCategoryClickListener?.invoke(it.category)
-                    Log.d("PieChartView", "category: $selectedCategory")
-                    //Toast.makeText(context, it.category, Toast.LENGTH_SHORT).show()
+                    Log.d("${javaClass.name}", "category: $selectedCategory")
                     invalidate()
                 }
             }
@@ -162,8 +171,32 @@ class PieChartView @JvmOverloads constructor(
         return super.onTouchEvent(event)
     }
 
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        pieHeight = height / 2f
+        pieWidth = width / 2f
+    }
+
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+        // Explicit width measurement example
+        val widthMode = MeasureSpec.getMode(widthMeasureSpec)
+        val widthSize = MeasureSpec.getSize(widthMeasureSpec)
+
+        val desiredWidth = (resources.displayMetrics.density * 360).toInt()
+
+        val width = when (widthMode) {
+            MeasureSpec.EXACTLY -> widthSize
+            MeasureSpec.AT_MOST -> minOf(desiredWidth, widthSize)
+            MeasureSpec.UNSPECIFIED -> desiredWidth
+            else -> Log.w("${javaClass.name}", "Unknown MeasureSpec")
+        }
+
+        // Simplified height measurement example
+        val minHeight = suggestedMinimumHeight + paddingTop + paddingBottom
+
+        // Combined result
+        setMeasuredDimension(width, resolveSize(minHeight, heightMeasureSpec))
     }
 
     override fun onSaveInstanceState(): Parcelable {

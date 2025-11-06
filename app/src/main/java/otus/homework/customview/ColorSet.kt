@@ -1,6 +1,6 @@
 package otus.homework.customview
 
-enum class ColorSet (val hexCode: String){
+enum class ColorSet(val hexCode: String) {
     PRIMARY("#123456"),
     RED("#FFFF0000"),
     GREEN("#00FF00"),
@@ -10,6 +10,5 @@ enum class ColorSet (val hexCode: String){
     PURPLE("#800080"),
     PINK("#FFC0CB"),
     CYAN("#00FFFF"),
-
-
+    BROWN("#79553D")
 }
